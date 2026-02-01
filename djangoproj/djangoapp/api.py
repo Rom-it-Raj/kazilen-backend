@@ -86,6 +86,16 @@ def protected_check(request):
         return {"error": "User does not exist", "status": False}
     return {"message" : f"Your phone number = {phone}"}
 
+
+class check_phoneNo(Schema):
+    phone: str
+
+@api.post('/check')
+def unprotected_check(request, data: check_phoneNo):
+    valid_phone = '+91'+data.phone
+    exists = Customer.objects.filter(phoneNo=valid_phone)
+    return {"exists": exists.exists()}
+
 @api.get("/get-profile", auth=CustomAuth(), response=CustomerSchema)
 def get_profile(request):
     phone = request.auth
