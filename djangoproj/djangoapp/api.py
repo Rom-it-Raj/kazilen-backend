@@ -146,8 +146,8 @@ def db_check(request):
 class unporc_profile(Schema):
     user_id: str
 
-@api.post("/get_user_profile", response=CustomerSchema)
-def unporc_get_profile(request, data: unporc_profile):
-    user_id = data.user_id
-    user = get_object_or_404(Customer, id= user_id)
+@api.post("/get_user_profile")
+def unporc_get_profile(request, unporc_profile):
+    user_id = request.user_id
+    user = get_object_or_404(Customer, userID= user_id)
     return user
