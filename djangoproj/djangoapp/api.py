@@ -143,6 +143,11 @@ def db_check(request):
         print(f"DB ERROR: {e}")  #testing purposes only
         return {"status" : "DB is down"}
 
-@api.get("/live_check")
-def chek(request):
-    return {"status":"LIVE"}
+class unporc_profile(Schema):
+    user_id: str
+
+@api.post("/get_user_profile")
+def unporc_get_profile(request, unporc_profile):
+    user_id = request.user_id
+    user = get_object_or_404(Customer, userID= user_id)
+    return user
