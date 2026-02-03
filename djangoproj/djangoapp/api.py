@@ -143,6 +143,8 @@ def db_check(request):
         print(f"DB ERROR: {e}")  #testing purposes only
         return {"status" : "DB is down"}
 
+
+#kjkjdhkjshd
 class unporc_profile(Schema):
     user_id: str
 
