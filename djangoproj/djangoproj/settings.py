@@ -54,11 +54,10 @@ STORAGES = {
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SECURE = True
-
 
 
 INSTALLED_APPS = [
@@ -76,6 +75,7 @@ INSTALLED_APPS = [
     "phonenumber_field",
     "storages",
     "imageserver",
+    "helper_side",
 ]
 
 MIDDLEWARE = [
