@@ -44,11 +44,6 @@ class Worker(models.Model):
         ("electrician", "appliance"),
         ("manual", " labour")
     ]
-    SubCategory = (
-        ("consult", "be a consultant"),
-        ("fixed", "Fixed Charges"),
-        ("book", "Hourly pay")
-        )
     name = models.CharField(
         max_length=100,
     )
@@ -67,7 +62,7 @@ class Worker(models.Model):
         null=False, 
         blank=False
     )
-#    subcategory = MultiSelectField(choices=SubCategory, default=["consultant"], min_choices=1, max_length=20)
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
     is_Consult = models.BooleanField(default=False)
     is_Hourly = models.BooleanField(default=True)
     is_Fixed = models.BooleanField(default=True)
