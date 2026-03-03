@@ -31,7 +31,14 @@ class Customer(models.Model):
                               choices=gender,
                               default=gender[-0])
     dob = models.DateField(null=True, blank=True)
-    
+
+    is_working = models.BooleanField(default=False)
+    is_online = models.BooleanField(default=False)
+ 
+    work_id = models.UUIDField(null = True)
+
+
+
     def __str__(self):
         return f"id : {self.id}"
 
@@ -66,6 +73,12 @@ class Worker(models.Model):
     is_Consult = models.BooleanField(default=False)
     is_Hourly = models.BooleanField(default=True)
     is_Fixed = models.BooleanField(default=True)
+
+    is_working = models.BooleanField(default=False)
+    is_online = models.BooleanField(default=False)
+ 
+    work_id = models.UUIDField(null = True)
+
     rating = models.FloatField(default=0)
     dob = models.DateField(null=True, blank=True)
     gender = models.CharField(null=True, blank=True)
@@ -78,6 +91,7 @@ class Worker(models.Model):
 
 
 class History(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, editable = False, primary_key=True)
     customer = models.ForeignKey(
         Customer,
         on_delete=models.CASCADE,
@@ -86,6 +100,7 @@ class History(models.Model):
     worker = models.ForeignKey(Worker, on_delete=models.CASCADE)
     action = models.CharField(max_length=30)
     timestmp = models.DateTimeField(auto_now=True)
+    is_finished = models.BooleanField(null=False, default=True)
     def __str__(self):
         return f"{self.customer.name}:{self.action}:{self.worker}->{self.timestmp}"
 

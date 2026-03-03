@@ -18,6 +18,14 @@ from djangoapp.auth import CustomAuth
 from django.db import connections
 from django.db.utils import OperationalError
 
+from djangoapp.schemas import (
+    HistorySchema,
+    SendOTPSchema,
+    VerifyOTPSchema,
+    CreateWorkerSchema,
+    WorkerSchema,
+)
+
 db_conn = connections["default"]  # will change once we migrate to neon
 
 load_dotenv()
@@ -74,22 +82,22 @@ class check_phoneNo(Schema):
     phone: str
 
 
-@api.post("/check", response={200: CustomerSchema, 404: dict})
+@api.post("/check", response={200: WorkerSchema, 404: dict})
 def unprotected_check(request, data: check_phoneNo):
     valid_phone = "+91" + data.phone
-    exists = Customer.objects.filter(phoneNo=valid_phone).first()
+    exists = Worker.objects.filter(phoneNo=valid_phone).first()
     if exists:
         return 200, exists
     else:
         return 404, {"messg": "yo no bud"}
 
 
-@api.get("/get-profile", auth=CustomAuth(), response=CustomerSchema)
+@api.get("/get-profile", auth=CustomAuth(), response=WorkerSchema)
 def get_profile(request):
     phone = request.auth
     if not phone:
         return {"error": "User does not exist", "status": False}
-    details = get_object_or_404(Customer, phoneNo=phone)
+    details = get_object_or_404(Worker, phoneNo=phone)
     return details
 
 
