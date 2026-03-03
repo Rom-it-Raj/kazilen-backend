@@ -19,12 +19,14 @@ from django.contrib import admin
 from django.urls import path
 from djangoapp.api import api 
 from imageserver.api import router
+from helper_side.api import api as api2
 from ninja import NinjaAPI
+
 ninja = NinjaAPI()
 
 ninja.add_router('/image/', router)
+ninja.add_router('/helper/', api2)
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", api.urls),
-    
     ]
