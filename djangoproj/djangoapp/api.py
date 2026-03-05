@@ -1,7 +1,7 @@
 from django.db.models import Q, QuerySet
 from typing_extensions import List
 from typing import List, Optional
-from ninja import FilterSchema, NinjaAPI, Query, Schema
+from ninja import FilterSchema, NinjaAPI, Query, Router, Schema
 from django.shortcuts import get_object_or_404
 from .models import Customer, Worker, History
 from .schemas import (
@@ -28,7 +28,9 @@ from django.db.utils import OperationalError
 db_conn = connections["default"]  # will change once we migrate to neon
 
 load_dotenv()
-api = NinjaAPI()
+
+api = Router()
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 redis_client = Redis(

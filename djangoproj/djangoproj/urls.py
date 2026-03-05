@@ -26,8 +26,8 @@ ninja = NinjaAPI()
 
 ninja.add_router("/image/", router)
 ninja.add_router("/helper/", api2)
+ninja.add_router("/customer", api)
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/", api.urls),
-    path("others/", ninja.urls),
+    path("api/", ninja.urls),
 ]
