@@ -51,19 +51,10 @@ def getAllWorker(request):
 
 
 @api.get("/filterworker", response=List[WorkerSchema])
-def getFilterWorker(
-    request,
-    category: Optional[str] = Query(None),
-    subcategory: Optional[str] = Query(None),
-):
-    filters = Q()
-    if category:
-        filters &= Q(category=category)
-    if subcategory:
-        filters &= Q(subcategory=subcategory)
-    workers = Worker.objects.filter(filters)
-    return workers
-
+def getFilterWorker(request, category: str):
+    filterk = {f'sub_categories__{category}__visible': True }
+    filterWorker = Worker.objects.filter(**filterk)
+    return filterWorker
 
 @api.post("/send-otp")
 def send_otp(request, payload: SendOTPSchema):
