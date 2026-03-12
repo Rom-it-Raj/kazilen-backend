@@ -96,7 +96,7 @@ class Worker(models.Model):
         self.save()
 
     def __str__(self):
-        return f"{self.name}-{self.category}"
+        return f"{self.name}-{self.id}"
 
 
 class History(models.Model):
