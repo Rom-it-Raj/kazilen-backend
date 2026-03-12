@@ -50,7 +50,7 @@ class Worker(models.Model):
         "invereter-install",
         "invereter-maintenance",
         "cooler-repair",
-        "motor-winding"
+        "motor-winding",
     ]
     name = models.CharField(
         max_length=100,
@@ -83,7 +83,17 @@ class Worker(models.Model):
 
     description = models.CharField(max_length=200, blank=True, null=True, editable=True)
 
-    visible_categories = models.JSONField(default=true)
+    sub_categories = models.JSONField(default=dict, editable=True)
+
+    def initialize_items(self, subcategories):
+        new_data = {}
+        for cate in subcategories:
+            new_data[cate] = {
+                "visible": False,
+                "price": 120,
+            }
+        self.subcategories = new_data
+        self.save()
 
     def __str__(self):
         return f"{self.name}-{self.category}"
