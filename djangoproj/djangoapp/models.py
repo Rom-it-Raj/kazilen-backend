@@ -38,11 +38,19 @@ class Customer(models.Model):
 class Worker(models.Model):
     gender = [("M", "Male"), ("F", "Female"), ("O", "Others"), ("N", "rather not say")]
 
-    JobProfiles = [
-        ("vehicle", "mechanic"),
-        ("carpenter", "wood work"),
-        ("electrician", "appliance"),
-        ("manual", " labour"),
+    subcategories = [
+        ("consult", "consult"),
+        ("hourly", "hourly"),
+        ("fan-install", "fan-install"),
+        ("fan-repair", "fan-repair"),
+        ("light", "light"),
+        ("wiring", "wiring"),
+        ("switch-install", "switch-install"),
+        ("switch-mcb", "switch-mcb"),
+        ("invereter-install", "invereter-install"),
+        ("invrtr-maintenance", "invereter-maintenance"),
+        ("cooler-repair", "cooler-repair"),
+        ("motor-winding", "motor-winding")
     ]
     name = models.CharField(
         max_length=100,
@@ -51,11 +59,6 @@ class Worker(models.Model):
         max_length=500,
     )
     phoneNo = PhoneNumberField(unique=True)
-    category = models.CharField(
-        max_length=30,
-        choices=JobProfiles,
-        default=JobProfiles[-1],
-    )
     imageURL = models.ImageField(
         upload_to=upload_worker_image,
         storage=storages["minio"],
