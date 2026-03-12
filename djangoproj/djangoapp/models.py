@@ -39,18 +39,18 @@ class Worker(models.Model):
     gender = [("M", "Male"), ("F", "Female"), ("O", "Others"), ("N", "rather not say")]
 
     subcategories = [
-        ("consult", "consult"),
-        ("hourly", "hourly"),
-        ("fan-install", "fan-install"),
-        ("fan-repair", "fan-repair"),
-        ("light", "light"),
-        ("wiring", "wiring"),
-        ("switch-install", "switch-install"),
-        ("switch-mcb", "switch-mcb"),
-        ("invereter-install", "invereter-install"),
-        ("invrtr-maintenance", "invereter-maintenance"),
-        ("cooler-repair", "cooler-repair"),
-        ("motor-winding", "motor-winding")
+        "consult",
+        "hourly",
+        "fan-install",
+        "fan-repair",
+        "light",
+        "wiring",
+        "switch-install",
+        "switch-mcb",
+        "invereter-install",
+        "invereter-maintenance",
+        "cooler-repair",
+        "motor-winding"
     ]
     name = models.CharField(
         max_length=100,
@@ -82,6 +82,8 @@ class Worker(models.Model):
     location = models.CharField(null=True, default="nagpur", editable=True)
 
     description = models.CharField(max_length=200, blank=True, null=True, editable=True)
+
+    visible_categories = models.JSONField(default=true)
 
     def __str__(self):
         return f"{self.name}-{self.category}"
