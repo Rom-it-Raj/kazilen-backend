@@ -64,9 +64,6 @@ class Worker(models.Model):
         editable=True,
     )
     id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
-    is_Consult = models.BooleanField(default=False, editable=True)
-    is_Hourly = models.BooleanField(default=True, editable=True)
-    is_Fixed = models.BooleanField(default=True, editable=True)
 
     is_working = models.BooleanField(default=False, editable=True)
     is_online = models.BooleanField(default=False, editable=True)
