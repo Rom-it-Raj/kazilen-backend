@@ -157,15 +157,11 @@ def pollThis(request, payload: poll_this):
         return {"book": False}
 
 
-<<<<<<< HEAD
-=======
 @api.get("/health")
 def helchek(request):
     return {"status": "RUNNING"}
 
 
-
->>>>>>> 2e91c0505b576cb63f7b4595b515d4b46df0f211
 
 @api.get("/db_health")
 def db_check(request):
