@@ -85,7 +85,7 @@ class Worker(models.Model):
         blank=True,
         editable=True,
     )
-    worker_id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+    id= models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
 
     is_working = models.BooleanField(default=False, editable=True, null=True)
     is_online = models.BooleanField(default=False, editable=True, null=True)
