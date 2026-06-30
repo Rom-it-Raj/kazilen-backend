@@ -35,7 +35,7 @@ class Customer(models.Model):
 
     is_online = models.BooleanField(default=False)
 
-    cus_id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
 
     def __str__(self):
         return f"{self.name}-{self.phoneNo}"
