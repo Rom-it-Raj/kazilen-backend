@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+redis
+pyjwt
+passlib
+python-dotenv
+pydantic
+pydantic-settings
