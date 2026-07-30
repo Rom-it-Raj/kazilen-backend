@@ -9,4 +9,6 @@ class User(Base):
     phone_number = Column(String, unique=True, index=True, nullable=False)
     full_name = Column(String, nullable=True)
     role = Column(String, default="customer") # "customer" or "worker"
+    dob = Column(String, nullable=True)
+    gender = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
