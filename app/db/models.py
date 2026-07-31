@@ -11,4 +11,5 @@ class User(Base):
     role = Column(String, default="customer") # "customer" or "worker"
     dob = Column(String, nullable=True)
     gender = Column(String, nullable=True)
+    offered_services = Column(String, nullable=True) # JSON list or comma-separated string of subCategory IDs
     created_at = Column(DateTime(timezone=True), server_default=func.now())

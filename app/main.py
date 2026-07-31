@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Union
+import json
 import traceback
 
 from app.api.routes import auth
@@ -25,6 +26,10 @@ def auto_migrate():
             pass
         try:
             conn.execute(text("ALTER TABLE users ADD COLUMN gender VARCHAR"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN offered_services VARCHAR"))
         except Exception:
             pass
 
@@ -92,8 +97,18 @@ class UserUpdateSchema(BaseModel):
     dob: Optional[str] = None
     gender: Optional[str] = None
 
+class WorkerServicesUpdateSchema(BaseModel):
+    offered_services: Union[List[str], str]
+
 @app.get("/api/users/me")
 def read_users_me(current_user: User = Depends(get_current_user)):
+    services_list = []
+    if current_user.offered_services:
+        try:
+            services_list = json.loads(current_user.offered_services)
+        except Exception:
+            services_list = current_user.offered_services.split(",")
+
     return {
         "id": current_user.id,
         "phone_number": current_user.phone_number,
@@ -101,6 +116,7 @@ def read_users_me(current_user: User = Depends(get_current_user)):
         "role": current_user.role,
         "dob": current_user.dob,
         "gender": current_user.gender,
+        "offered_services": services_list,
         "created_at": str(current_user.created_at) if current_user.created_at else None
     }
 
@@ -127,6 +143,54 @@ def update_user_me(data: UserUpdateSchema, current_user: User = Depends(get_curr
             "gender": current_user.gender
         }
     }
+
+@app.put("/api/users/me/services")
+def update_worker_services(data: WorkerServicesUpdateSchema, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if isinstance(data.offered_services, list):
+        current_user.offered_services = json.dumps(data.offered_services)
+    else:
+        current_user.offered_services = str(data.offered_services)
+
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "status": "success",
+        "message": "Offered services updated in database",
+        "offered_services": data.offered_services
+    }
+
+@app.get("/api/workers/available")
+@app.get("/api/workers")
+def get_available_workers(service_id: Optional[str] = None, sub_category: Optional[str] = None, db: Session = Depends(get_db)):
+    target_service = service_id or sub_category
+    workers = db.query(User).filter(User.role == "worker").all()
+    filtered = []
+
+    for w in workers:
+        enabled = True
+        if target_service and w.offered_services:
+            try:
+                services_list = json.loads(w.offered_services)
+                if isinstance(services_list, list):
+                    enabled = target_service in services_list
+                else:
+                    enabled = target_service in str(services_list).split(",")
+            except Exception:
+                enabled = target_service in str(w.offered_services).split(",")
+
+        if enabled:
+            filtered.append({
+                "id": w.id,
+                "full_name": w.full_name or "Verified Partner",
+                "phone_number": w.phone_number,
+                "rating": 4.9,
+                "locality": "Dharampeth, Nagpur",
+                "eta": "Arrives in 30 mins",
+                "jobs_completed": "150+"
+            })
+
+    return {"status": "success", "workers": filtered}
 
 @app.get("/")
 def root():
