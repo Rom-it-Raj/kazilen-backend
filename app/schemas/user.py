@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict, Any
 
 class UserUpdateSchema(BaseModel):
     full_name: Optional[str] = None
@@ -7,7 +7,7 @@ class UserUpdateSchema(BaseModel):
     gender: Optional[str] = None
 
 class WorkerServicesUpdateSchema(BaseModel):
-    offered_services: Union[List[str], str]
+    offered_services: Union[List[Union[Dict[str, Any], str]], str, Dict[str, Any]]
 
 class UserResponseSchema(BaseModel):
     id: int
@@ -16,5 +16,5 @@ class UserResponseSchema(BaseModel):
     role: str
     dob: Optional[str] = None
     gender: Optional[str] = None
-    offered_services: List[str] = []
+    offered_services: Union[List[Any], str] = []
     created_at: Optional[str] = None

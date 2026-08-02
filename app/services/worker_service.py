@@ -16,15 +16,25 @@ class WorkerService:
 
         for w in workers:
             enabled = True
-            if target_service and w.offered_services:
+            parsed_services = []
+            if w.offered_services:
                 try:
-                    services_list = json.loads(w.offered_services)
-                    if isinstance(services_list, list):
-                        enabled = target_service in services_list
+                    parsed = json.loads(w.offered_services)
+                    if isinstance(parsed, list):
+                        parsed_services = parsed
                     else:
-                        enabled = target_service in str(services_list).split(",")
+                        parsed_services = str(w.offered_services).split(",")
                 except Exception:
-                    enabled = target_service in str(w.offered_services).split(",")
+                    parsed_services = str(w.offered_services).split(",")
+
+            if target_service and parsed_services:
+                extracted_ids = []
+                for item in parsed_services:
+                    if isinstance(item, dict) and "id" in item:
+                        extracted_ids.append(str(item["id"]))
+                    else:
+                        extracted_ids.append(str(item))
+                enabled = target_service in extracted_ids
 
             if enabled:
                 filtered.append({
@@ -34,7 +44,8 @@ class WorkerService:
                     "rating": 4.9,
                     "locality": "Dharampeth, Nagpur",
                     "eta": "Arrives in 30 mins",
-                    "jobs_completed": "150+"
+                    "jobs_completed": "150+",
+                    "offered_services": parsed_services
                 })
 
         return {"status": "success", "workers": filtered}
