@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional, List, Union, Dict, Any
 
@@ -17,4 +18,5 @@ class UserResponseSchema(BaseModel):
     dob: Optional[str] = None
     gender: Optional[str] = None
     offered_services: Union[List[Any], str] = []
-    created_at: Optional[str] = None
+    created_at: Optional[Union[datetime, str]] = None
+

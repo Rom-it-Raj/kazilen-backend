@@ -3,8 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 import traceback
+import asyncio
 
-from app.api.routes import auth, users, workers
+from app.api.routes import auth, users, workers, bookings
 from app.db.database import engine, Base
 from app.core.config import settings
 
@@ -12,11 +13,23 @@ from app.core.config import settings
 Base.metadata.create_all(bind=engine)
 
 def auto_migrate():
-    """Applies lightweight schema migrations for user fields."""
+    """Applies lightweight schema migrations for user and booking fields."""
     with engine.begin() as conn:
+        # User table columns
         for col_name in ["dob", "gender", "offered_services"]:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} VARCHAR"))
+            except Exception:
+                pass
+        # Booking table columns
+        for col_def in [
+            "start_otp VARCHAR",
+            "end_otp VARCHAR",
+            "amount VARCHAR",
+            "updated_at DATETIME",
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE bookings ADD COLUMN {col_def}"))
             except Exception:
                 pass
 
@@ -66,6 +79,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["Users Profile"])
 app.include_router(workers.router, prefix="/api/workers", tags=["Worker Marketplace"])
+app.include_router(bookings.router, prefix="/api/bookings", tags=["Bookings"])
 
 @app.get("/", tags=["Health"])
 @app.get("/health", tags=["Health"])

@@ -49,3 +49,48 @@ class WorkerService:
                 })
 
         return {"status": "success", "workers": filtered}
+
+    @staticmethod
+    def get_worker_dashboard(current_user: User, db: Session) -> dict:
+        from app.db.models import Booking
+        completed_bookings = db.query(Booking).filter(
+            Booking.worker_id == current_user.id,
+            Booking.status == "completed"
+        ).all()
+
+        total_earnings = 0
+        for b in completed_bookings:
+            try:
+                total_earnings += float(b.amount) if b.amount else 0
+            except (ValueError, TypeError):
+                pass
+
+        completed_count = len(completed_bookings)
+
+        return {
+            "status": "success",
+            "progress": {
+                "today": {
+                    "earnings": total_earnings,
+                    "hours": f"{completed_count * 2}:00 hrs",
+                    "orders": completed_count
+                },
+                "week": {
+                    "earnings": total_earnings,
+                    "hours": f"{completed_count * 2}:00 hrs",
+                    "orders": completed_count
+                }
+            },
+            "plan": {
+                "completed": completed_count,
+                "totalLabel": "10",
+                "price": "399",
+                "timeLeft": "28 Days left"
+            },
+            "recharge": {
+                "price": "399",
+                "validityDays": 30,
+                "orderType": "Instant Local Dispatch"
+            }
+        }
+
