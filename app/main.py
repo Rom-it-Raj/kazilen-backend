@@ -6,8 +6,9 @@ import traceback
 import asyncio
 
 from app.api.routes import auth, users, workers, bookings
-from app.db.database import engine, Base
+from app.db.database import engine, Base, SessionLocal
 from app.core.config import settings
+from app.services.referral_service import ensure_customer_referral_codes
 
 # Initialize database schema
 Base.metadata.create_all(bind=engine)
@@ -16,11 +17,19 @@ def auto_migrate():
     """Applies lightweight schema migrations for user and booking fields."""
     with engine.begin() as conn:
         # User table columns
-        for col_name in ["dob", "gender", "offered_services"]:
+        for col_name in ["dob", "gender", "offered_services", "referral_code"]:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} VARCHAR"))
             except Exception:
                 pass
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN referral_points INTEGER DEFAULT 0"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("CREATE UNIQUE INDEX ix_users_referral_code ON users (referral_code)"))
+        except Exception:
+            pass
         # Booking table columns
         for col_def in [
             "start_otp VARCHAR",
@@ -34,6 +43,9 @@ def auto_migrate():
                 pass
 
 auto_migrate()
+
+with SessionLocal() as db:
+    ensure_customer_referral_codes(db)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

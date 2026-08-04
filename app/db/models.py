@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from app.db.database import Base
 
@@ -12,6 +12,21 @@ class User(Base):
     dob = Column(String, nullable=True)
     gender = Column(String, nullable=True)
     offered_services = Column(String, nullable=True)  # JSON list or comma-separated string of subCategory IDs
+    referral_code = Column(String(6), unique=True, index=True, nullable=True)
+    referral_points = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReferralClaim(Base):
+    __tablename__ = "referral_claims"
+    __table_args__ = (
+        UniqueConstraint("referred_user_id", name="uq_referral_claim_referred_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    referrer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    referred_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    referral_code = Column(String(6), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

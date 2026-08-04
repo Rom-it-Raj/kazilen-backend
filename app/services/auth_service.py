@@ -1,12 +1,14 @@
 import random
+import re
 import redis
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from app.db.models import User
+from app.db.models import ReferralClaim, User
 from app.core.config import settings
 from app.core.security import hash_otp, create_access_token
 from app.schemas.auth import SendOTPRequest, VerifyOTPRequest, RegisterRequest
+from app.services.referral_service import generate_unique_referral_code
 
 redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 memory_otp_store = {}
@@ -98,14 +100,50 @@ class AuthService:
                 detail="User already registered"
             )
             
+        referral_code = (request.referral_code or "").strip().upper()
+        referrer = None
+        if referral_code:
+            if request.role != "customer":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Referral codes are available for customer registration only",
+                )
+            if not re.fullmatch(r"[A-Z0-9]{6}", referral_code):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Referral code must be 6 letters or numbers",
+                )
+
+            referrer = db.query(User).filter(
+                User.referral_code == referral_code,
+                User.role == "customer",
+            ).first()
+            if not referrer:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Referral code is invalid or expired",
+                )
+
         new_user = User(
             phone_number=request.phone_number,
             full_name=request.full_name,
             role=request.role,
             dob=request.dob,
-            gender=request.gender
+            gender=request.gender,
+            referral_code=generate_unique_referral_code(db) if request.role == "customer" else None,
+            referral_points=0,
         )
         db.add(new_user)
+        db.flush()
+
+        if referrer and request.role == "customer":
+            referrer.referral_points = (referrer.referral_points or 0) + 1
+            db.add(ReferralClaim(
+                referrer_id=referrer.id,
+                referred_user_id=new_user.id,
+                referral_code=referral_code,
+            ))
+
         db.commit()
         db.refresh(new_user)
         

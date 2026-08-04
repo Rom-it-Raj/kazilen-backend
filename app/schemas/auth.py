@@ -15,6 +15,7 @@ class RegisterRequest(BaseModel):
     role: str = "customer"
     dob: Optional[str] = None
     gender: Optional[str] = None
+    referral_code: Optional[str] = None
 
 class TokenResponse(BaseModel):
     status: str

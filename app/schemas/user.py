@@ -18,5 +18,6 @@ class UserResponseSchema(BaseModel):
     dob: Optional[str] = None
     gender: Optional[str] = None
     offered_services: Union[List[Any], str] = []
+    referral_code: Optional[str] = None
+    referral_points: int = 0
     created_at: Optional[Union[datetime, str]] = None
-

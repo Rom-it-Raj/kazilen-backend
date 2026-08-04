@@ -21,6 +21,8 @@ class UserService:
             "dob": user.dob,
             "gender": user.gender,
             "offered_services": services_list,
+            "referral_code": user.referral_code,
+            "referral_points": user.referral_points or 0,
             "created_at": str(user.created_at) if user.created_at else None
         }
 
@@ -44,7 +46,9 @@ class UserService:
                 "full_name": current_user.full_name,
                 "role": current_user.role,
                 "dob": current_user.dob,
-                "gender": current_user.gender
+                "gender": current_user.gender,
+                "referral_code": current_user.referral_code,
+                "referral_points": current_user.referral_points or 0,
             }
         }
 
