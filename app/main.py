@@ -5,7 +5,7 @@ from sqlalchemy import text
 import traceback
 import asyncio
 
-from app.api.routes import auth, users, workers, bookings
+from app.api.routes import auth, users, workers, bookings, reviews
 from app.db.database import engine, Base, SessionLocal
 from app.core.config import settings
 from app.services.referral_service import ensure_customer_referral_codes
@@ -14,7 +14,7 @@ from app.services.referral_service import ensure_customer_referral_codes
 Base.metadata.create_all(bind=engine)
 
 def auto_migrate():
-    """Applies lightweight schema migrations for user and booking fields."""
+    """Applies lightweight schema migrations for existing local databases."""
     with engine.begin() as conn:
         # User table columns
         for col_name in ["dob", "gender", "offered_services", "referral_code"]:
@@ -41,6 +41,34 @@ def auto_migrate():
                 conn.execute(text(f"ALTER TABLE bookings ADD COLUMN {col_def}"))
             except Exception:
                 pass
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS booking_reviews (
+                id INTEGER PRIMARY KEY,
+                booking_id INTEGER NOT NULL,
+                reviewer_id INTEGER NOT NULL,
+                reviewee_id INTEGER NOT NULL,
+                rating INTEGER NOT NULL,
+                description VARCHAR(2000) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_booking_review_reviewer UNIQUE (booking_id, reviewer_id),
+                FOREIGN KEY (booking_id) REFERENCES bookings(id),
+                FOREIGN KEY (reviewer_id) REFERENCES users(id),
+                FOREIGN KEY (reviewee_id) REFERENCES users(id)
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS platform_feedback (
+                id INTEGER PRIMARY KEY,
+                booking_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                rating INTEGER NOT NULL,
+                description VARCHAR(2000) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_platform_feedback_user UNIQUE (booking_id, user_id),
+                FOREIGN KEY (booking_id) REFERENCES bookings(id),
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """))
 
 auto_migrate()
 
@@ -92,6 +120,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["Users Profile"])
 app.include_router(workers.router, prefix="/api/workers", tags=["Worker Marketplace"])
 app.include_router(bookings.router, prefix="/api/bookings", tags=["Bookings"])
+app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews & Feedback"])
 
 @app.get("/", tags=["Health"])
 @app.get("/health", tags=["Health"])

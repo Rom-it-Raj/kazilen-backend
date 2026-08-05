@@ -1,7 +1,7 @@
 import json
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from app.db.models import User
+from app.db.models import User, BookingReview
 
 class WorkerService:
     @staticmethod
@@ -11,7 +11,7 @@ class WorkerService:
         db: Session = None
     ) -> dict:
         target_service = service_id or sub_category
-        workers = db.query(User).filter(User.role == "worker").all()
+        workers = db.query(User).filter(User.role == "worker").all() if db else []
         filtered = []
 
         for w in workers:
@@ -37,14 +37,25 @@ class WorkerService:
                 enabled = target_service in extracted_ids
 
             if enabled:
+                # Calculate real rating and review count from BookingReview table
+                reviews = db.query(BookingReview).filter(BookingReview.reviewee_id == w.id).all() if db else []
+                if reviews:
+                    total_score = sum(r.rating for r in reviews if r.rating is not None)
+                    avg_rating = round(total_score / len(reviews), 1)
+                    reviews_count = len(reviews)
+                else:
+                    avg_rating = None
+                    reviews_count = 0
+
                 filtered.append({
                     "id": w.id,
                     "full_name": w.full_name or "Verified Partner",
                     "phone_number": w.phone_number,
-                    "rating": 4.9,
+                    "rating": avg_rating,
+                    "reviews_count": reviews_count,
                     "locality": "Dharampeth, Nagpur",
                     "eta": "Arrives in 30 mins",
-                    "jobs_completed": "150+",
+                    "jobs_completed": f"{reviews_count}+" if reviews_count > 0 else "0",
                     "offered_services": parsed_services
                 })
 

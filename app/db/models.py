@@ -47,3 +47,32 @@ class Booking(Base):
     otp = Column(String(6), nullable=True)          # legacy, kept for migration compat
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class BookingReview(Base):
+    __tablename__ = "booking_reviews"
+    __table_args__ = (
+        UniqueConstraint("booking_id", "reviewer_id", name="uq_booking_review_reviewer"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, index=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    reviewee_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    rating = Column(Integer, nullable=False)
+    description = Column(String(2000), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PlatformFeedback(Base):
+    __tablename__ = "platform_feedback"
+    __table_args__ = (
+        UniqueConstraint("booking_id", "user_id", name="uq_platform_feedback_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    rating = Column(Integer, nullable=False)
+    description = Column(String(2000), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
