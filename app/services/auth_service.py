@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.security import hash_otp, create_access_token
 from app.schemas.auth import SendOTPRequest, VerifyOTPRequest, RegisterRequest
 from app.services.referral_service import generate_unique_referral_code
+from app.services.otp_service import OTPService
 
 redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 memory_otp_store = {}
@@ -17,9 +18,14 @@ class AuthService:
     @staticmethod
     def send_otp(request: SendOTPRequest) -> dict:
         otp = str(random.randint(100000, 999999))
-        print(f"\n=======================================================")
-        print(f"--- DEV OTP FOR {request.phone_number}: {otp} ---")
-        print(f"=======================================================\n")
+        
+        # Always print OTP to dev terminal during development
+        print(f"\n=======================================================", flush=True)
+        print(f"--- DEV OTP FOR {request.phone_number}: {otp} ---", flush=True)
+        print(f"=======================================================\n", flush=True)
+
+        # Dispatch OTP via vendor-agnostic OTPService (Meta WhatsApp, Twilio, Console, or Custom)
+        OTPService.send_otp(request.phone_number, otp)
         
         hashed_otp = hash_otp(otp)
         redis_key = f"otp:{request.phone_number}"
@@ -27,10 +33,12 @@ class AuthService:
         try:
             redis_client.setex(redis_key, 300, hashed_otp)  # 5 minutes expiry
         except Exception as e:
-            print(f"[WARN] Redis unavailable ({e}), using in-memory OTP fallback.")
+            print(f"[WARN] Redis unavailable ({e}), using in-memory OTP fallback.", flush=True)
             memory_otp_store[request.phone_number] = hashed_otp
             
         return {"message": "OTP sent successfully", "dev_otp": otp}
+
+
 
     @staticmethod
     def verify_otp(request: VerifyOTPRequest, db: Session) -> dict:
