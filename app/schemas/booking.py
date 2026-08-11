@@ -22,6 +22,8 @@ class BookingResponse(BaseModel):
     status: str
     address: Optional[str] = None
     amount: Optional[str] = None
+    start_otp: Optional[str] = None
+    end_otp: Optional[str] = None
     created_at: Optional[Union[datetime, str]] = None
 
     class Config:
