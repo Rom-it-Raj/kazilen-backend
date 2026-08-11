@@ -36,6 +36,14 @@ def get_review_history(user_id: int, db: Session) -> dict:
         .order_by(BookingReview.created_at.desc())
         .all()
     )
+    received_rows = (
+        db.query(BookingReview, Booking, User)
+        .join(Booking, Booking.id == BookingReview.booking_id)
+        .join(User, User.id == BookingReview.reviewer_id)
+        .filter(BookingReview.reviewee_id == user_id)
+        .order_by(BookingReview.created_at.desc())
+        .all()
+    )
     platform_rows = (
         db.query(PlatformFeedback, Booking)
         .join(Booking, Booking.id == PlatformFeedback.booking_id)
@@ -60,6 +68,19 @@ def get_review_history(user_id: int, db: Session) -> dict:
             "editable_until": editable_until,
         })
 
+    received_reviews = []
+    for review, booking, reviewer in received_rows:
+        received_reviews.append({
+            "id": review.id,
+            "booking_id": booking.id,
+            "service_id": booking.service_id,
+            "booking_date": booking.date,
+            "reviewer_name": reviewer.full_name or "Verified Customer",
+            "rating": review.rating,
+            "description": review.description,
+            "created_at": review.created_at,
+        })
+
     platform_feedback = []
     for feedback, booking in platform_rows:
         editable, editable_until = _edit_details(feedback.created_at)
@@ -75,7 +96,18 @@ def get_review_history(user_id: int, db: Session) -> dict:
             "editable_until": editable_until,
         })
 
-    return {"reviews": reviews, "platform_feedback": platform_feedback}
+    avg_rating = None
+    if received_reviews:
+        total_score = sum(r["rating"] for r in received_reviews if r.get("rating"))
+        avg_rating = round(total_score / len(received_reviews), 1)
+
+    return {
+        "reviews": reviews,
+        "received_reviews": received_reviews,
+        "platform_feedback": platform_feedback,
+        "average_rating": avg_rating,
+        "total_reviews_count": len(received_reviews),
+    }
 
 
 def _ensure_editable(created_at):

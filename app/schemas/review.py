@@ -46,6 +46,20 @@ class PlatformFeedbackHistoryItem(BaseModel):
     editable_until: Optional[datetime] = None
 
 
+class ReceivedReviewItem(BaseModel):
+    id: int
+    booking_id: int
+    service_id: str
+    booking_date: str
+    reviewer_name: str
+    rating: int
+    description: str
+    created_at: Optional[datetime] = None
+
+
 class ReviewHistoryResponse(BaseModel):
     reviews: List[ReviewHistoryItem]
+    received_reviews: Optional[List[ReceivedReviewItem]] = []
     platform_feedback: List[PlatformFeedbackHistoryItem]
+    average_rating: Optional[float] = None
+    total_reviews_count: int = 0
