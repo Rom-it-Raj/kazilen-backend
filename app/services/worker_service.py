@@ -78,6 +78,44 @@ class WorkerService:
 
         completed_count = len(completed_bookings)
 
+        # Calculate ratings and recent reviews for dashboard
+        reviews = (
+            db.query(BookingReview, User)
+            .join(User, User.id == BookingReview.reviewer_id)
+            .filter(BookingReview.reviewee_id == current_user.id)
+            .order_by(BookingReview.created_at.desc())
+            .all()
+        )
+
+        if reviews:
+            total_score = sum(r.rating for r, _ in reviews if r.rating is not None)
+            avg_rating = round(total_score / len(reviews), 1)
+            reviews_count = len(reviews)
+        else:
+            avg_rating = None
+            reviews_count = 0
+
+        recent_reviews = []
+        for r, reviewer in reviews[:3]:
+            recent_reviews.append({
+                "id": r.id,
+                "booking_id": r.booking_id,
+                "reviewer_name": reviewer.full_name or "Verified Customer",
+                "rating": r.rating,
+                "description": r.description,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            })
+
+        # Count active services
+        active_services_count = 0
+        if current_user.offered_services:
+            try:
+                parsed = json.loads(current_user.offered_services)
+                if isinstance(parsed, list):
+                    active_services_count = len(parsed)
+            except Exception:
+                pass
+
         return {
             "status": "success",
             "progress": {
@@ -92,6 +130,10 @@ class WorkerService:
                     "orders": completed_count
                 }
             },
+            "rating": avg_rating,
+            "reviews_count": reviews_count,
+            "recent_reviews": recent_reviews,
+            "active_services_count": active_services_count,
             "plan": {
                 "completed": completed_count,
                 "totalLabel": "10",
