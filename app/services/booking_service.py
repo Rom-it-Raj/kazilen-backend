@@ -43,18 +43,27 @@ def create_booking(booking_data, customer_id: int) -> Booking:
         .all()
     )
 
-    for b in existing:
-        if _slots_overlap(new_slot, b.time_slot):
-            # Distinguish: is it the same customer re-booking?
-            if b.customer_id == customer_id:
+    is_asap = "ASAP" in new_slot.upper() or "INSTANT" in new_slot.upper()
+    if is_asap:
+        for b in existing:
+            if b.customer_id == customer_id and ("ASAP" in b.time_slot.upper() or "INSTANT" in b.time_slot.upper()):
                 raise HTTPException(
                     status_code=409,
-                    detail="You already have an active booking for this worker at this time.",
+                    detail="You already have an active Instant ASAP booking with this worker.",
                 )
-            raise HTTPException(
-                status_code=409,
-                detail="This worker is already booked during that time. Please choose a different slot.",
-            )
+    else:
+        for b in existing:
+            if _slots_overlap(new_slot, b.time_slot):
+                # Distinguish: is it the same customer re-booking?
+                if b.customer_id == customer_id:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="You already have an active booking for this worker at this time.",
+                    )
+                raise HTTPException(
+                    status_code=409,
+                    detail="This worker is already booked during that time. Please choose a different slot.",
+                )
 
     booking = Booking(
         customer_id=customer_id,
