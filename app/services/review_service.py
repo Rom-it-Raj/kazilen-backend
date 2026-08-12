@@ -167,6 +167,58 @@ def submit_participant_review(booking_id: int, user_id: int, rating: int, descri
     }
 
 
+def get_user_platform_feedback(user_id: int, db: Session) -> dict:
+    feedback = (
+        db.query(PlatformFeedback)
+        .filter(PlatformFeedback.user_id == user_id)
+        .order_by(PlatformFeedback.created_at.desc())
+        .first()
+    )
+    if not feedback:
+        return {"submitted": False, "feedback": None}
+    return {
+        "submitted": True,
+        "feedback": {
+            "id": feedback.id,
+            "rating": feedback.rating,
+            "description": feedback.description,
+            "created_at": feedback.created_at,
+        },
+    }
+
+
+def submit_user_platform_feedback(user_id: int, rating: int, description: str, db: Session) -> dict:
+    clean_description = description.strip()
+    if not clean_description:
+        raise HTTPException(status_code=422, detail="Description cannot be empty")
+
+    feedback = (
+        db.query(PlatformFeedback)
+        .filter(PlatformFeedback.user_id == user_id)
+        .order_by(PlatformFeedback.created_at.desc())
+        .first()
+    )
+    if feedback:
+        feedback.rating = rating
+        feedback.description = clean_description
+    else:
+        feedback = PlatformFeedback(
+            user_id=user_id,
+            rating=rating,
+            description=clean_description,
+        )
+        db.add(feedback)
+
+    db.commit()
+    db.refresh(feedback)
+    return {
+        "status": "success",
+        "review_type": "platform",
+        "id": feedback.id,
+        "created_at": feedback.created_at,
+    }
+
+
 def submit_platform_feedback(booking_id: int, user_id: int, rating: int, description: str, db: Session) -> dict:
     _get_completed_booking(db, booking_id, user_id)
     existing = (

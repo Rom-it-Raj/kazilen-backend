@@ -11,7 +11,19 @@ class ReviewSubmission(BaseModel):
 
 class ReviewStatus(BaseModel):
     participant_review_submitted: bool
-    platform_feedback_submitted: bool
+    platform_feedback_submitted: Optional[bool] = False
+
+
+class PlatformFeedbackItem(BaseModel):
+    id: int
+    rating: int
+    description: str
+    created_at: Optional[datetime] = None
+
+
+class PlatformFeedbackMeResponse(BaseModel):
+    submitted: bool
+    feedback: Optional[PlatformFeedbackItem] = None
 
 
 class ReviewResponse(BaseModel):

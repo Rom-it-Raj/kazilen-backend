@@ -66,12 +66,9 @@ class BookingReview(Base):
 
 class PlatformFeedback(Base):
     __tablename__ = "platform_feedback"
-    __table_args__ = (
-        UniqueConstraint("booking_id", "user_id", name="uq_platform_feedback_user"),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
-    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     rating = Column(Integer, nullable=False)
     description = Column(String(2000), nullable=False)

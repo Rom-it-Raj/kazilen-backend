@@ -8,17 +8,42 @@ from app.schemas.review import (
     ReviewResponse,
     ReviewStatus,
     ReviewSubmission,
+    PlatformFeedbackMeResponse,
 )
 from app.services.review_service import (
     get_review_status,
     get_review_history,
     submit_participant_review,
     submit_platform_feedback,
+    get_user_platform_feedback,
+    submit_user_platform_feedback,
     update_participant_review,
     update_platform_feedback,
 )
 
 router = APIRouter()
+
+
+@router.get("/platform/me", response_model=PlatformFeedbackMeResponse)
+def get_my_platform_feedback_endpoint(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return get_user_platform_feedback(current_user.id, db)
+
+
+@router.post("/platform", response_model=ReviewResponse)
+def submit_my_platform_feedback_endpoint(
+    submission: ReviewSubmission,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return submit_user_platform_feedback(
+        current_user.id,
+        submission.rating,
+        submission.description,
+        db,
+    )
 
 
 @router.get("/my", response_model=ReviewHistoryResponse)
