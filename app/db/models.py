@@ -73,3 +73,24 @@ class PlatformFeedback(Base):
     rating = Column(Integer, nullable=False)
     description = Column(String(2000), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Address(Base):
+    __tablename__ = "addresses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    tag = Column(String(50), default="Home")  # Home | Work | Other
+    flat_no = Column(String(255), nullable=True)
+    street = Column(String(255), nullable=True)
+    area = Column(String(255), nullable=False)
+    landmark = Column(String(255), nullable=True)
+    city = Column(String(100), default="Nagpur")
+    pincode = Column(String(20), nullable=True)
+    full_address = Column(String(1000), nullable=False)
+    latitude = Column(String(50), nullable=True)
+    longitude = Column(String(50), nullable=True)
+    is_default = Column(Integer, default=0)  # 1 for default, 0 otherwise
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+

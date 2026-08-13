@@ -5,7 +5,7 @@ from sqlalchemy import text
 import traceback
 import asyncio
 
-from app.api.routes import auth, users, workers, bookings, reviews
+from app.api.routes import auth, users, workers, bookings, reviews, addresses
 from app.db.database import engine, Base, SessionLocal
 from app.core.config import settings
 from app.services.referral_service import ensure_customer_referral_codes
@@ -69,6 +69,26 @@ def auto_migrate():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS addresses (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                tag VARCHAR(50) DEFAULT 'Home',
+                flat_no VARCHAR(255),
+                street VARCHAR(255),
+                area VARCHAR(255) NOT NULL,
+                landmark VARCHAR(255),
+                city VARCHAR(100) DEFAULT 'Nagpur',
+                pincode VARCHAR(20),
+                full_address VARCHAR(1000) NOT NULL,
+                latitude VARCHAR(50),
+                longitude VARCHAR(50),
+                is_default INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """))
 
 auto_migrate()
 
@@ -121,6 +141,7 @@ app.include_router(users.router, prefix="/api/users", tags=["Users Profile"])
 app.include_router(workers.router, prefix="/api/workers", tags=["Worker Marketplace"])
 app.include_router(bookings.router, prefix="/api/bookings", tags=["Bookings"])
 app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews & Feedback"])
+app.include_router(addresses.router, prefix="/api/addresses", tags=["Saved Addresses"])
 
 @app.get("/", tags=["Health"])
 @app.get("/health", tags=["Health"])
