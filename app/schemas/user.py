@@ -19,6 +19,15 @@ class WorkerAvailabilitySchema(BaseModel):
     days_off: List[str] = []  # e.g. ["Sunday", "Friday"]
     dead_slots: List[DeadSlotSchema] = []
 
+class WorkerLocationSchema(BaseModel):
+    area: str
+    landmark: Optional[str] = None
+    city: str = "Nagpur"
+    pincode: Optional[str] = None
+    full_address: str
+    latitude: Optional[Union[str, float]] = None
+    longitude: Optional[Union[str, float]] = None
+
 class UserResponseSchema(BaseModel):
     id: int
     phone_number: str
@@ -28,6 +37,7 @@ class UserResponseSchema(BaseModel):
     gender: Optional[str] = None
     offered_services: Union[List[Any], str] = []
     availability: Optional[Dict[str, Any]] = None
+    location: Optional[Dict[str, Any]] = None
     referral_code: Optional[str] = None
     referral_points: int = 0
     created_at: Optional[Union[datetime, str]] = None

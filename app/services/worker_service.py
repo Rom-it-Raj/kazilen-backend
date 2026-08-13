@@ -1,7 +1,8 @@
 import json
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from app.db.models import User, BookingReview
+from sqlalchemy import desc
+from app.db.models import User, BookingReview, Address
 
 class WorkerService:
     @staticmethod
@@ -47,13 +48,28 @@ class WorkerService:
                     avg_rating = None
                     reviews_count = 0
 
+                # Resolve worker operational locality
+                worker_addr = (
+                    db.query(Address)
+                    .filter(Address.user_id == w.id)
+                    .order_by(desc(Address.is_default), desc(Address.id))
+                    .first()
+                    if db else None
+                )
+                if worker_addr and worker_addr.area:
+                    locality_val = f"{worker_addr.area}, {worker_addr.city or 'Nagpur'}"
+                elif worker_addr and worker_addr.full_address:
+                    locality_val = worker_addr.full_address
+                else:
+                    locality_val = "Dharampeth, Nagpur"
+
                 filtered.append({
                     "id": w.id,
                     "full_name": w.full_name or "Verified Partner",
                     "phone_number": w.phone_number,
                     "rating": avg_rating,
                     "reviews_count": reviews_count,
-                    "locality": "Dharampeth, Nagpur",
+                    "locality": locality_val,
                     "eta": "Arrives in 30 mins",
                     "jobs_completed": f"{reviews_count}+" if reviews_count > 0 else "0",
                     "offered_services": parsed_services

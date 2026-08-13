@@ -1,11 +1,18 @@
 import json
+from typing import Optional
 from sqlalchemy.orm import Session
-from app.db.models import User
-from app.schemas.user import UserUpdateSchema, WorkerServicesUpdateSchema, WorkerAvailabilitySchema
+from sqlalchemy import desc
+from app.db.models import User, Address
+from app.schemas.user import (
+    UserUpdateSchema,
+    WorkerServicesUpdateSchema,
+    WorkerAvailabilitySchema,
+    WorkerLocationSchema
+)
 
 class UserService:
     @staticmethod
-    def get_user_profile(user: User) -> dict:
+    def get_user_profile(user: User, db: Optional[Session] = None) -> dict:
         services_list = []
         if user.offered_services:
             try:
@@ -25,6 +32,26 @@ class UserService:
             except Exception:
                 pass
 
+        location_data = None
+        if db is not None:
+            addr = (
+                db.query(Address)
+                .filter(Address.user_id == user.id)
+                .order_by(desc(Address.is_default), desc(Address.id))
+                .first()
+            )
+            if addr:
+                location_data = {
+                    "id": addr.id,
+                    "area": addr.area,
+                    "landmark": addr.landmark,
+                    "city": addr.city,
+                    "pincode": addr.pincode,
+                    "full_address": addr.full_address,
+                    "latitude": addr.latitude,
+                    "longitude": addr.longitude,
+                }
+
         return {
             "id": user.id,
             "phone_number": user.phone_number,
@@ -34,6 +61,7 @@ class UserService:
             "gender": user.gender,
             "offered_services": services_list,
             "availability": availability_data,
+            "location": location_data,
             "referral_code": user.referral_code,
             "referral_points": user.referral_points or 0,
             "created_at": str(user.created_at) if user.created_at else None
@@ -92,4 +120,61 @@ class UserService:
             "status": "success",
             "message": "Worker availability and dead time zones updated in database",
             "availability": payload
+        }
+
+    @staticmethod
+    def update_user_location(data: WorkerLocationSchema, current_user: User, db: Session) -> dict:
+        addr = (
+            db.query(Address)
+            .filter(Address.user_id == current_user.id)
+            .order_by(desc(Address.is_default), desc(Address.id))
+            .first()
+        )
+
+        area_val = (data.area or "").strip() or "Nagpur"
+        city_val = (data.city or "").strip() or "Nagpur"
+        full_addr_val = (data.full_address or "").strip() or f"{area_val}, {city_val}"
+
+        if not addr:
+            addr = Address(
+                user_id=current_user.id,
+                tag="Operational",
+                area=area_val,
+                landmark=data.landmark,
+                city=city_val,
+                pincode=data.pincode,
+                full_address=full_addr_val,
+                latitude=str(data.latitude) if data.latitude is not None else None,
+                longitude=str(data.longitude) if data.longitude is not None else None,
+                is_default=1,
+            )
+            db.add(addr)
+        else:
+            addr.area = area_val
+            addr.landmark = data.landmark
+            addr.city = city_val
+            addr.pincode = data.pincode
+            addr.full_address = full_addr_val
+            if data.latitude is not None:
+                addr.latitude = str(data.latitude)
+            if data.longitude is not None:
+                addr.longitude = str(data.longitude)
+            addr.is_default = 1
+
+        db.commit()
+        db.refresh(addr)
+
+        return {
+            "status": "success",
+            "message": "Operational location updated successfully",
+            "location": {
+                "id": addr.id,
+                "area": addr.area,
+                "landmark": addr.landmark,
+                "city": addr.city,
+                "pincode": addr.pincode,
+                "full_address": addr.full_address,
+                "latitude": addr.latitude,
+                "longitude": addr.longitude,
+            }
         }
