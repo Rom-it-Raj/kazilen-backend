@@ -17,7 +17,7 @@ def auto_migrate():
     """Applies lightweight schema migrations for existing local databases."""
     with engine.begin() as conn:
         # User table columns
-        for col_name in ["dob", "gender", "offered_services", "referral_code"]:
+        for col_name in ["dob", "gender", "offered_services", "referral_code", "availability"]:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} VARCHAR"))
             except Exception:

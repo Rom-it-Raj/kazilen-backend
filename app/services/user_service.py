@@ -1,7 +1,7 @@
 import json
 from sqlalchemy.orm import Session
 from app.db.models import User
-from app.schemas.user import UserUpdateSchema, WorkerServicesUpdateSchema
+from app.schemas.user import UserUpdateSchema, WorkerServicesUpdateSchema, WorkerAvailabilitySchema
 
 class UserService:
     @staticmethod
@@ -13,6 +13,18 @@ class UserService:
             except Exception:
                 services_list = user.offered_services.split(",")
 
+        availability_data = {"days_off": [], "dead_slots": []}
+        if user.availability:
+            try:
+                parsed_avail = json.loads(user.availability)
+                if isinstance(parsed_avail, dict):
+                    availability_data = {
+                        "days_off": parsed_avail.get("days_off", []),
+                        "dead_slots": parsed_avail.get("dead_slots", [])
+                    }
+            except Exception:
+                pass
+
         return {
             "id": user.id,
             "phone_number": user.phone_number,
@@ -21,6 +33,7 @@ class UserService:
             "dob": user.dob,
             "gender": user.gender,
             "offered_services": services_list,
+            "availability": availability_data,
             "referral_code": user.referral_code,
             "referral_points": user.referral_points or 0,
             "created_at": str(user.created_at) if user.created_at else None
@@ -66,4 +79,17 @@ class UserService:
             "status": "success",
             "message": "Offered services updated in database",
             "offered_services": data.offered_services
+        }
+
+    @staticmethod
+    def update_worker_availability(data: WorkerAvailabilitySchema, current_user: User, db: Session) -> dict:
+        payload = data.model_dump() if hasattr(data, "model_dump") else data.dict()
+        current_user.availability = json.dumps(payload)
+        db.commit()
+        db.refresh(current_user)
+
+        return {
+            "status": "success",
+            "message": "Worker availability and dead time zones updated in database",
+            "availability": payload
         }

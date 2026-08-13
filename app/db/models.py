@@ -12,6 +12,7 @@ class User(Base):
     dob = Column(String, nullable=True)
     gender = Column(String, nullable=True)
     offered_services = Column(String, nullable=True)  # JSON list or comma-separated string of subCategory IDs
+    availability = Column(String, nullable=True)      # JSON string: {"days_off": [...], "dead_slots": [...]}
     referral_code = Column(String(6), unique=True, index=True, nullable=True)
     referral_points = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -8,7 +8,9 @@ OTP flow:
  4. Job done: Worker generates end_otp → shown on worker screen → worker verifies it → status=completed
 """
 
+import json
 import random
+from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
@@ -24,6 +26,50 @@ def _get_db_session() -> Session:
     return next(get_db())
 
 
+def _get_worker_availability(worker: User) -> dict:
+    """Extracts parsed worker availability config or default empty struct."""
+    if not worker or not worker.availability:
+        return {"days_off": [], "dead_slots": []}
+    try:
+        data = json.loads(worker.availability)
+        if isinstance(data, dict):
+            return {
+                "days_off": [str(d).strip() for d in data.get("days_off", []) if isinstance(d, (str, int))],
+                "dead_slots": data.get("dead_slots", []) or []
+            }
+    except Exception:
+        pass
+    return {"days_off": [], "dead_slots": []}
+
+
+def _is_day_off(date_str: str, days_off: list) -> tuple[bool, str]:
+    """Checks if a given 'YYYY-MM-DD' date string matches any configured day off."""
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        day_name = dt.strftime("%A")  # e.g. "Sunday"
+        days_off_lower = [str(d).strip().lower() for d in days_off]
+        return day_name.lower() in days_off_lower, day_name
+    except Exception:
+        return False, ""
+
+
+def _parse_dead_slot_hours(dead_slots: list) -> list[int]:
+    """Expands dead slot ranges like '13:00'-'15:00' into [13, 14]."""
+    hours = set()
+    for slot in dead_slots:
+        if isinstance(slot, dict):
+            start_str = slot.get("start_time", "")
+            end_str = slot.get("end_time", "")
+            try:
+                start_h = int(start_str.split(":")[0])
+                end_h = int(end_str.split(":")[0])
+                for h in range(start_h, end_h):
+                    hours.add(h)
+            except Exception:
+                pass
+    return sorted(hours)
+
+
 # ---------------------------------------------------------------------------
 # Customer: create booking
 # ---------------------------------------------------------------------------
@@ -31,6 +77,22 @@ def _get_db_session() -> Session:
 def create_booking(booking_data, customer_id: int) -> Booking:
     db = _get_db_session()
     new_slot = booking_data.time_slot
+
+    # Validate worker availability
+    worker = db.query(User).filter(User.id == booking_data.worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Service partner not found.")
+
+    avail = _get_worker_availability(worker)
+    days_off = avail.get("days_off", [])
+    dead_slots = avail.get("dead_slots", [])
+
+    is_off, day_name = _is_day_off(booking_data.date, days_off)
+    if is_off:
+        raise HTTPException(
+            status_code=409,
+            detail=f"This service partner is not available on {day_name}s (Scheduled Day Off).",
+        )
 
     # Fetch all active bookings for this worker on this date
     existing = (
@@ -52,6 +114,15 @@ def create_booking(booking_data, customer_id: int) -> Booking:
                     detail="You already have an active Instant ASAP booking with this worker.",
                 )
     else:
+        # Check against worker's configured dead hours
+        req_hours = set(_parse_slot_hours(new_slot))
+        dead_hours = set(_parse_dead_slot_hours(dead_slots))
+        if req_hours & dead_hours:
+            raise HTTPException(
+                status_code=409,
+                detail="This service partner is unavailable during that time (Scheduled Break / Dead Hours).",
+            )
+
         for b in existing:
             if _slots_overlap(new_slot, b.time_slot):
                 # Distinguish: is it the same customer re-booking?
@@ -109,10 +180,28 @@ def _slots_overlap(a: str, b: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def get_booked_slots(worker_id: int, date: str) -> dict:
-    """Returns individual booked hour-start strings for the worker on the date.
-    E.g. if '09:00-11:00' is booked → returns ['09:00', '10:00'].
-    Only active statuses: pending, accepted, in_progress."""
+    """Returns individual booked hour-start strings for the worker on the date,
+    including worker's scheduled dead time zones and masking if the day is a day off.
+    E.g. if '09:00-11:00' is booked → returns ['09:00', '10:00']."""
     db = _get_db_session()
+
+    worker = db.query(User).filter(User.id == worker_id).first()
+    avail = _get_worker_availability(worker)
+    days_off = avail.get("days_off", [])
+    dead_slots = avail.get("dead_slots", [])
+
+    is_off, day_name = _is_day_off(date, days_off)
+    if is_off:
+        # Mask all slots for the full day off (09:00 to 21:00)
+        all_hours = [f"{str(h).zfill(2)}:00" for h in range(9, 21)]
+        return {
+            "booked_hours": all_hours,
+            "is_day_off": True,
+            "day_off_name": day_name,
+            "days_off": days_off,
+            "dead_hours": []
+        }
+
     rows = (
         db.query(Booking.time_slot)
         .filter(
@@ -126,7 +215,21 @@ def get_booked_slots(worker_id: int, date: str) -> dict:
     for (slot,) in rows:
         for h in _parse_slot_hours(slot):
             occupied.add(f"{str(h).zfill(2)}:00")
-    return {"booked_hours": sorted(occupied)}
+
+    # Add worker dead time hours to occupied hours
+    dead_hours = []
+    for h in _parse_dead_slot_hours(dead_slots):
+        hour_str = f"{str(h).zfill(2)}:00"
+        occupied.add(hour_str)
+        dead_hours.append(hour_str)
+
+    return {
+        "booked_hours": sorted(occupied),
+        "is_day_off": False,
+        "day_off_name": None,
+        "days_off": days_off,
+        "dead_hours": sorted(dead_hours)
+    }
 
 
 

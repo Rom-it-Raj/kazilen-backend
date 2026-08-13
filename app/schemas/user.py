@@ -10,6 +10,15 @@ class UserUpdateSchema(BaseModel):
 class WorkerServicesUpdateSchema(BaseModel):
     offered_services: Union[List[Union[Dict[str, Any], str]], str, Dict[str, Any]]
 
+class DeadSlotSchema(BaseModel):
+    start_time: str  # e.g. "13:00"
+    end_time: str    # e.g. "15:00"
+    label: Optional[str] = "Break"
+
+class WorkerAvailabilitySchema(BaseModel):
+    days_off: List[str] = []  # e.g. ["Sunday", "Friday"]
+    dead_slots: List[DeadSlotSchema] = []
+
 class UserResponseSchema(BaseModel):
     id: int
     phone_number: str
@@ -18,6 +27,7 @@ class UserResponseSchema(BaseModel):
     dob: Optional[str] = None
     gender: Optional[str] = None
     offered_services: Union[List[Any], str] = []
+    availability: Optional[Dict[str, Any]] = None
     referral_code: Optional[str] = None
     referral_points: int = 0
     created_at: Optional[Union[datetime, str]] = None

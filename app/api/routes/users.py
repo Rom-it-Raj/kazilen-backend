@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import User
 from app.api.deps import get_current_user
-from app.schemas.user import UserUpdateSchema, WorkerServicesUpdateSchema
+from app.schemas.user import UserUpdateSchema, WorkerServicesUpdateSchema, WorkerAvailabilitySchema
 from app.services.user_service import UserService
 
 router = APIRouter()
@@ -31,3 +31,12 @@ def update_worker_services(
 ):
     """Updates offered service IDs for a worker account."""
     return UserService.update_worker_services(data, current_user, db)
+
+@router.put("/me/availability")
+def update_worker_availability(
+    data: WorkerAvailabilitySchema,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Updates weekly days off and daily dead time zones for a worker account."""
+    return UserService.update_worker_availability(data, current_user, db)
