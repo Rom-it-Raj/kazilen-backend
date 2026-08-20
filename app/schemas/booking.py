@@ -16,6 +16,8 @@ class BookingResponse(BaseModel):
     id: int
     customer_id: int
     worker_id: int
+    worker_name: Optional[str] = None
+    customer_name: Optional[str] = None
     service_id: str
     date: str
     time_slot: str
@@ -35,6 +37,8 @@ class BookingDetailResponse(BaseModel):
     id: int
     customer_id: int
     worker_id: int
+    worker_name: Optional[str] = None
+    customer_name: Optional[str] = None
     service_id: str
     date: str
     time_slot: str

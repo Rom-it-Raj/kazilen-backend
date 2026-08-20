@@ -19,16 +19,21 @@ def generate_unique_referral_code(db: Session) -> str:
     raise RuntimeError("Unable to generate a unique referral code")
 
 
-def ensure_customer_referral_codes(db: Session) -> None:
-    customers = db.query(User).filter(
-        User.role == "customer",
+def ensure_referral_codes(db: Session) -> None:
+    users_without_code = db.query(User).filter(
         User.referral_code.is_(None),
     ).all()
 
-    if not customers:
+    if not users_without_code:
         return
 
-    for customer in customers:
-        customer.referral_code = generate_unique_referral_code(db)
+    for user in users_without_code:
+        user.referral_code = generate_unique_referral_code(db)
 
     db.commit()
+
+
+def ensure_customer_referral_codes(db: Session) -> None:
+    """Alias for backwards compatibility."""
+    ensure_referral_codes(db)
+

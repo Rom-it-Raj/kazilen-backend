@@ -8,7 +8,7 @@ import asyncio
 from app.api.routes import auth, users, workers, bookings, reviews, addresses
 from app.db.database import engine, Base, SessionLocal
 from app.core.config import settings
-from app.services.referral_service import ensure_customer_referral_codes
+from app.services.referral_service import ensure_referral_codes
 
 # Initialize database schema
 Base.metadata.create_all(bind=engine)
@@ -24,6 +24,10 @@ def auto_migrate():
                 pass
         try:
             conn.execute(text("ALTER TABLE users ADD COLUMN referral_points INTEGER DEFAULT 0"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_online INTEGER DEFAULT 1"))
         except Exception:
             pass
         try:
@@ -93,7 +97,7 @@ def auto_migrate():
 auto_migrate()
 
 with SessionLocal() as db:
-    ensure_customer_referral_codes(db)
+    ensure_referral_codes(db)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

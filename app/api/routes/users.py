@@ -8,7 +8,8 @@ from app.schemas.user import (
     UserUpdateSchema,
     WorkerServicesUpdateSchema,
     WorkerAvailabilitySchema,
-    WorkerLocationSchema
+    WorkerLocationSchema,
+    WorkerOnlineStatusSchema
 )
 from app.services.user_service import UserService
 
@@ -57,3 +58,14 @@ def update_worker_location(
 ):
     """Updates operational base/live location for current user or worker."""
     return UserService.update_user_location(data, current_user, db)
+
+@router.put("/me/online")
+@router.put("/me/status")
+def update_worker_online_status(
+    data: WorkerOnlineStatusSchema,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Updates real-time online/offline dispatch status for a worker account."""
+    return UserService.update_online_status(data, current_user, db)
+

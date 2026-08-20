@@ -83,6 +83,12 @@ def create_booking(booking_data, customer_id: int) -> Booking:
     if not worker:
         raise HTTPException(status_code=404, detail="Service partner not found.")
 
+    if worker.is_online == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="This specialist is currently offline and unavailable for booking.",
+        )
+
     avail = _get_worker_availability(worker)
     days_off = avail.get("days_off", [])
     dead_slots = avail.get("dead_slots", [])
@@ -150,6 +156,9 @@ def create_booking(booking_data, customer_id: int) -> Booking:
     db.commit()
     db.refresh(booking)
     print(f"[BOOKING] New booking #{booking.id} created for customer {customer_id}, worker {booking_data.worker_id}")
+    booking.worker_name = worker.full_name or "Verified Partner"
+    customer = db.query(User).filter(User.id == customer_id).first()
+    booking.customer_name = customer.full_name if customer else "Customer"
     return booking
 
 
@@ -245,6 +254,15 @@ def get_customer_bookings(customer_id: int) -> dict:
         .order_by(Booking.created_at.desc())
         .all()
     )
+    worker_ids = {b.worker_id for b in bookings}
+    worker_map = {}
+    if worker_ids:
+        workers = db.query(User).filter(User.id.in_(worker_ids)).all()
+        worker_map = {w.id: (w.full_name or "Verified Partner") for w in workers}
+
+    for b in bookings:
+        b.worker_name = worker_map.get(b.worker_id, "Verified Partner")
+
     return {"status": "success", "bookings": bookings}
 
 
@@ -264,6 +282,19 @@ def get_worker_bookings(worker_id: int) -> dict:
         .order_by(Booking.created_at.desc())
         .all()
     )
+    cust_ids = {b.customer_id for b in bookings}
+    cust_map = {}
+    if cust_ids:
+        customers = db.query(User).filter(User.id.in_(cust_ids)).all()
+        cust_map = {c.id: (c.full_name or "Customer") for c in customers}
+
+    worker = db.query(User).filter(User.id == worker_id).first()
+    w_name = worker.full_name if worker else "Verified Partner"
+
+    for b in bookings:
+        b.customer_name = cust_map.get(b.customer_id, "Customer")
+        b.worker_name = w_name
+
     return {"status": "success", "bookings": bookings}
 
 
@@ -278,6 +309,11 @@ def get_booking_detail(booking_id: int, user_id: int) -> Booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     if booking.customer_id != user_id and booking.worker_id != user_id:
         raise HTTPException(status_code=403, detail="Access denied")
+
+    worker = db.query(User).filter(User.id == booking.worker_id).first()
+    customer = db.query(User).filter(User.id == booking.customer_id).first()
+    booking.worker_name = worker.full_name if worker else "Verified Partner"
+    booking.customer_name = customer.full_name if customer else "Customer"
     return booking
 
 

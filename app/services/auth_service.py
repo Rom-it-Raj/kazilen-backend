@@ -111,11 +111,6 @@ class AuthService:
         referral_code = (request.referral_code or "").strip().upper()
         referrer = None
         if referral_code:
-            if request.role != "customer":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Referral codes are available for customer registration only",
-                )
             if not re.fullmatch(r"[A-Z0-9]{6}", referral_code):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -124,7 +119,6 @@ class AuthService:
 
             referrer = db.query(User).filter(
                 User.referral_code == referral_code,
-                User.role == "customer",
             ).first()
             if not referrer:
                 raise HTTPException(
@@ -138,13 +132,14 @@ class AuthService:
             role=request.role,
             dob=request.dob,
             gender=request.gender,
-            referral_code=generate_unique_referral_code(db) if request.role == "customer" else None,
+            referral_code=generate_unique_referral_code(db),
             referral_points=0,
+            is_online=1,
         )
         db.add(new_user)
         db.flush()
 
-        if referrer and request.role == "customer":
+        if referrer:
             referrer.referral_points = (referrer.referral_points or 0) + 1
             db.add(ReferralClaim(
                 referrer_id=referrer.id,

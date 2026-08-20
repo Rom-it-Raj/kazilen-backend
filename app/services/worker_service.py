@@ -12,7 +12,15 @@ class WorkerService:
         db: Session = None
     ) -> dict:
         target_service = service_id or sub_category
-        workers = db.query(User).filter(User.role == "worker").all() if db else []
+        workers = (
+            db.query(User)
+            .filter(
+                User.role == "worker",
+                User.is_online != 0
+            )
+            .all()
+            if db else []
+        )
         filtered = []
 
         for w in workers:

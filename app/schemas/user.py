@@ -28,6 +28,9 @@ class WorkerLocationSchema(BaseModel):
     latitude: Optional[Union[str, float]] = None
     longitude: Optional[Union[str, float]] = None
 
+class WorkerOnlineStatusSchema(BaseModel):
+    is_online: bool
+
 class UserResponseSchema(BaseModel):
     id: int
     phone_number: str
@@ -40,4 +43,5 @@ class UserResponseSchema(BaseModel):
     location: Optional[Dict[str, Any]] = None
     referral_code: Optional[str] = None
     referral_points: int = 0
+    is_online: bool = True
     created_at: Optional[Union[datetime, str]] = None

@@ -7,7 +7,8 @@ from app.schemas.user import (
     UserUpdateSchema,
     WorkerServicesUpdateSchema,
     WorkerAvailabilitySchema,
-    WorkerLocationSchema
+    WorkerLocationSchema,
+    WorkerOnlineStatusSchema
 )
 
 class UserService:
@@ -64,6 +65,7 @@ class UserService:
             "location": location_data,
             "referral_code": user.referral_code,
             "referral_points": user.referral_points or 0,
+            "is_online": bool(user.is_online != 0 if user.is_online is not None else True),
             "created_at": str(user.created_at) if user.created_at else None
         }
 
@@ -178,3 +180,16 @@ class UserService:
                 "longitude": addr.longitude,
             }
         }
+
+    @staticmethod
+    def update_online_status(data: WorkerOnlineStatusSchema, current_user: User, db: Session) -> dict:
+        current_user.is_online = 1 if data.is_online else 0
+        db.commit()
+        db.refresh(current_user)
+
+        return {
+            "status": "success",
+            "message": f"Worker is now {'ONLINE' if data.is_online else 'OFFLINE'}",
+            "is_online": bool(current_user.is_online != 0)
+        }
+
