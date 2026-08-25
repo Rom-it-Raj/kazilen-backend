@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "super-secret-key-for-local-dev")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    # Set to "true" in production (HTTPS) so the auth cookie is only sent over secure connections
+    COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE", "false").lower() == "true"
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./kazilen.db")
 

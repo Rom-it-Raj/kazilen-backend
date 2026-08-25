@@ -111,9 +111,6 @@ ALLOWED_ORIGINS = [
     "http://localhost:4000",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:4000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "*"
 ]
 
 app.add_middleware(
@@ -132,11 +129,6 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc) or "Internal Server Error"},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-        }
     )
 
 # Include Router Modules
