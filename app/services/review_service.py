@@ -110,6 +110,46 @@ def get_review_history(user_id: int, db: Session) -> dict:
     }
 
 
+def get_worker_reviews(worker_id: int, db: Session) -> dict:
+    """Public listing of reviews received by a worker, for customer marketplace views."""
+    worker = db.query(User).filter(User.id == worker_id).first()
+    if not worker or worker.role != "worker":
+        raise HTTPException(status_code=404, detail="Worker not found")
+
+    rows = (
+        db.query(BookingReview, Booking, User)
+        .join(Booking, Booking.id == BookingReview.booking_id)
+        .join(User, User.id == BookingReview.reviewer_id)
+        .filter(BookingReview.reviewee_id == worker_id)
+        .order_by(BookingReview.created_at.desc())
+        .all()
+    )
+
+    reviews = []
+    for review, booking, reviewer in rows:
+        reviews.append({
+            "id": review.id,
+            "booking_id": booking.id,
+            "service_id": booking.service_id,
+            "reviewer_name": reviewer.full_name or "Verified Customer",
+            "rating": review.rating,
+            "description": review.description,
+            "created_at": review.created_at,
+        })
+
+    avg_rating = None
+    if reviews:
+        avg_rating = round(sum(r["rating"] for r in reviews if r.get("rating")) / len(reviews), 1)
+
+    return {
+        "status": "success",
+        "worker_name": worker.full_name or "Verified Technician",
+        "average_rating": avg_rating,
+        "total_reviews_count": len(reviews),
+        "reviews": reviews,
+    }
+
+
 def _ensure_editable(created_at):
     editable, _ = _edit_details(created_at)
     if not editable:

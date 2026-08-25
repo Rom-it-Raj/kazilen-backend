@@ -6,6 +6,7 @@ from app.db.database import get_db
 from app.db.models import User
 from app.api.deps import get_current_user
 from app.services.worker_service import WorkerService
+from app.services.review_service import get_worker_reviews
 
 router = APIRouter()
 
@@ -27,4 +28,12 @@ def get_worker_dashboard(
 ):
     """Retrieves worker dashboard data (earnings, hours, completed jobs, active plan)."""
     return WorkerService.get_worker_dashboard(current_user, db)
+
+@router.get("/{worker_id}/reviews")
+def get_worker_reviews_endpoint(
+    worker_id: int,
+    db: Session = Depends(get_db)
+):
+    """Public endpoint returning all reviews received by a worker (customer marketplace view)."""
+    return get_worker_reviews(worker_id, db)
 
