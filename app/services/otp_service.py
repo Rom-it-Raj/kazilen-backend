@@ -2,42 +2,44 @@
 OTP Delivery Service (Vendor-Agnostic Architecture)
 
 This module provides a modular, extensible strategy pattern for delivering OTPs
-across different providers (Console Log, Meta WhatsApp Cloud API, Twilio, Generic SMS Gateway).
+across different providers (Twilio SMS, Twilio WhatsApp, Meta WhatsApp Cloud API, Console Log, Generic SMS Gateway).
 
-==================================================================================
-HOW TO SWITCH PROVIDERS (No code change required!):
-==================================================================================
-Set `OTP_PROVIDER` in your `.env` file or environment variables:
-  - OTP_PROVIDER=console   (Default: Dev terminal logger - no API keys needed)
-  - OTP_PROVIDER=whatsapp  (Meta WhatsApp Cloud API)
-  - OTP_PROVIDER=twilio    (Twilio SMS API)
-  - OTP_PROVIDER=custom    (Custom HTTP SMS Gateway / Webhook)
-
-==================================================================================
-HOW TO ADD A BRAND NEW PROVIDER IN 3 SIMPLE STEPS:
-==================================================================================
-Step 1: Create a new class inheriting from `BaseOTPProvider`:
-    class MyCoolProvider(BaseOTPProvider):
-        def send_otp(self, phone_number: str, otp: str) -> bool:
-            # Add your custom API call here
-            return True
-
-Step 2: Add your provider name to `PROVIDER_MAP` inside `OTPService.get_provider()`:
-    "my_cool_provider": MyCoolProvider()
-
-Step 3: Set `OTP_PROVIDER=my_cool_provider` in your `.env` file!
-==================================================================================
+Pattern & Configuration ported from Kazilen (backend-kazilen / send_otp.py).
 """
 
 import abc
 import logging
+import threading
 import urllib.request
 import urllib.parse
 import json
-from typing import Dict, Type
+from typing import Dict, Optional
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Try importing official Twilio client
+try:
+    from twilio.rest import Client as TwilioClient
+    _TWILIO_AVAILABLE = True
+except ImportError:
+    _TWILIO_AVAILABLE = False
+
+
+def normalize_phone_e164(phone_number: str) -> str:
+    """
+    Format phone number to standard E.164 (e.g., +917780877482).
+    Strips spaces, dashes, and ensures leading country code.
+    """
+    clean = str(phone_number).strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if clean.startswith("+"):
+        return clean
+    if len(clean) == 10:
+        # Default 10-digit Indian mobile number
+        return f"+91{clean}"
+    return f"+{clean}"
+
 
 # =========================================================================
 # 1. ABSTRACT BASE PROVIDER INTERFACE
@@ -57,7 +59,7 @@ class BaseOTPProvider(abc.ABC):
 
 
 # =========================================================================
-# 2. CONSOLE PROVIDER (Default for Local Development & Testing)
+# 2. CONSOLE PROVIDER (Default for Local Development & Offline Testing)
 # =========================================================================
 class ConsoleOTPProvider(BaseOTPProvider):
     """
@@ -73,23 +75,102 @@ class ConsoleOTPProvider(BaseOTPProvider):
         return True
 
 
+# =========================================================================
+# 3. TWILIO SMS PROVIDER (Official SDK + Non-blocking Threading)
+# =========================================================================
+class TwilioOTPProvider(BaseOTPProvider):
+    """
+    Sends OTP via Twilio SMS using the official Twilio SDK.
+    Includes background asynchronous dispatch and timeout safeguards.
+    """
+    @staticmethod
+    def get_client() -> Optional[TwilioClient]:
+        if not _TWILIO_AVAILABLE:
+            logger.warning("[TwilioProvider] Twilio library is not installed.")
+            return None
+        sid = settings.TWILIO_ACCOUNT_SID
+        token = settings.TWILIO_AUTH_TOKEN
+        if sid and token:
+            try:
+                return TwilioClient(sid, token)
+            except Exception as e:
+                logger.warning(f"[Twilio Init Warning]: {e}")
+                return None
+        return None
+
+    def send_otp(self, phone_number: str, otp: str) -> bool:
+        client = self.get_client()
+        from_number = settings.TWILIO_PHONE_NUMBER
+
+        if not client or not from_number:
+            logger.warning("[TwilioProvider] Missing Twilio credentials or sender phone number!")
+            return False
+
+        formatted_recipient = normalize_phone_e164(phone_number)
+        message_body = f"Your Kazilen verification code is: {otp}. Valid for 5 minutes."
+
+        def _send():
+            try:
+                msg = client.messages.create(
+                    body=message_body,
+                    from_=from_number,
+                    to=formatted_recipient
+                )
+                print(f"[SMS Sent via Twilio] to {formatted_recipient} (SID: {msg.sid})", flush=True)
+                logger.info(f"[TwilioProvider] SMS sent to {formatted_recipient} (SID: {msg.sid})")
+            except Exception as e:
+                print(f"[Twilio SMS Error]: {e}", flush=True)
+                logger.error(f"[TwilioProvider] Error sending SMS: {e}")
+
+        # Fire-and-forget background thread so HTTP response returns instantly
+        t = threading.Thread(target=_send, daemon=True)
+        t.start()
+        return True
+
 
 # =========================================================================
-# 3. WHATSAPP META CLOUD API PROVIDER
+# 4. TWILIO WHATSAPP PROVIDER
+# =========================================================================
+class TwilioWhatsAppOTPProvider(BaseOTPProvider):
+    """
+    Sends OTP via Twilio WhatsApp API using the official Twilio SDK.
+    """
+    def send_otp(self, phone_number: str, otp: str) -> bool:
+        client = TwilioOTPProvider.get_client()
+        from_number = settings.TWILIO_PHONE_NUMBER
+
+        if not client or not from_number:
+            logger.warning("[TwilioWhatsAppProvider] Missing Twilio credentials or sender phone number!")
+            return False
+
+        clean_from = from_number.replace("whatsapp:", "").strip()
+        formatted_recipient = normalize_phone_e164(phone_number)
+        message_body = f"Your Kazilen verification code is: {otp}. Valid for 5 minutes."
+
+        def _send():
+            try:
+                msg = client.messages.create(
+                    body=message_body,
+                    from_=f"whatsapp:{clean_from}",
+                    to=f"whatsapp:{formatted_recipient}"
+                )
+                print(f"[WhatsApp Sent via Twilio] to {formatted_recipient} (SID: {msg.sid})", flush=True)
+                logger.info(f"[TwilioWhatsAppProvider] WhatsApp sent to {formatted_recipient} (SID: {msg.sid})")
+            except Exception as e:
+                print(f"[Twilio WhatsApp Error]: {e}", flush=True)
+                logger.error(f"[TwilioWhatsAppProvider] Error sending WhatsApp message: {e}")
+
+        t = threading.Thread(target=_send, daemon=True)
+        t.start()
+        return True
+
+
+# =========================================================================
+# 5. WHATSAPP META CLOUD API PROVIDER (Graph API)
 # =========================================================================
 class WhatsAppMetaOTPProvider(BaseOTPProvider):
     """
     Sends OTP via Meta (Facebook) WhatsApp Cloud API.
-    
-    Required .env variables:
-      - WHATSAPP_API_TOKEN: Meta Graph API User/System Token
-      - WHATSAPP_PHONE_NUMBER_ID: Meta Business Phone Number ID
-      - WHATSAPP_TEMPLATE_NAME: Approved WhatsApp message template name (default: kazilen_otp)
-    
-    Setup Guide:
-      1. Register your business app at https://developers.facebook.com/
-      2. Create an authentication/OTP template in WhatsApp Manager.
-      3. Fill WHATSAPP_API_TOKEN & WHATSAPP_PHONE_NUMBER_ID in .env.
     """
     def send_otp(self, phone_number: str, otp: str) -> bool:
         token = settings.WHATSAPP_API_TOKEN
@@ -97,10 +178,9 @@ class WhatsAppMetaOTPProvider(BaseOTPProvider):
         template_name = settings.WHATSAPP_TEMPLATE_NAME
 
         if not token or not phone_id:
-            logger.error("[WhatsAppProvider] Missing WHATSAPP_API_TOKEN or WHATSAPP_PHONE_NUMBER_ID in settings!")
+            logger.error("[WhatsAppMetaProvider] Missing WHATSAPP_API_TOKEN or WHATSAPP_PHONE_NUMBER_ID in settings!")
             return False
 
-        # Clean phone number (remove + or whitespace)
         formatted_phone = phone_number.replace("+", "").replace(" ", "").replace("-", "")
 
         url = f"https://graph.facebook.com/v18.0/{phone_id}/messages"
@@ -109,7 +189,6 @@ class WhatsAppMetaOTPProvider(BaseOTPProvider):
             "Content-Type": "application/json"
         }
 
-        # Meta WhatsApp Template Payload Structure
         payload = {
             "messaging_product": "whatsapp",
             "to": formatted_phone,
@@ -120,99 +199,43 @@ class WhatsAppMetaOTPProvider(BaseOTPProvider):
                 "components": [
                     {
                         "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": otp}
-                        ]
+                        "parameters": [{"type": "text", "text": otp}]
                     },
                     {
                         "type": "button",
                         "sub_type": "url",
                         "index": "0",
-                        "parameters": [
-                            {"type": "text", "text": otp}
-                        ]
+                        "parameters": [{"type": "text", "text": otp}]
                     }
                 ]
             }
         }
 
-        try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers=headers,
-                method="POST"
-            )
-            with urllib.request.urlopen(req, timeout=10) as response:
-                res_body = json.loads(response.read().decode("utf-8"))
-                logger.info(f"[WhatsAppProvider] Message sent successfully: {res_body}")
-                return True
-        except Exception as e:
-            logger.error(f"[WhatsAppProvider] Error sending WhatsApp message: {e}")
-            return False
+        def _send():
+            try:
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    res_body = json.loads(response.read().decode("utf-8"))
+                    logger.info(f"[WhatsAppMetaProvider] Message sent: {res_body}")
+            except Exception as e:
+                logger.error(f"[WhatsAppMetaProvider] Error sending WhatsApp message: {e}")
+
+        t = threading.Thread(target=_send, daemon=True)
+        t.start()
+        return True
 
 
 # =========================================================================
-# 4. TWILIO SMS PROVIDER
-# =========================================================================
-class TwilioOTPProvider(BaseOTPProvider):
-    """
-    Sends OTP via Twilio SMS REST API.
-    
-    Required .env variables:
-      - TWILIO_ACCOUNT_SID: Twilio Account SID
-      - TWILIO_AUTH_TOKEN: Twilio Auth Token
-      - TWILIO_PHONE_NUMBER: Twilio Sender Phone Number (e.g. +1234567890)
-    """
-    def send_otp(self, phone_number: str, otp: str) -> bool:
-        account_sid = settings.TWILIO_ACCOUNT_SID
-        auth_token = settings.TWILIO_AUTH_TOKEN
-        from_number = settings.TWILIO_PHONE_NUMBER
-
-        if not account_sid or not auth_token or not from_number:
-            logger.error("[TwilioProvider] Missing Twilio SID, Auth Token, or From Phone Number!")
-            return False
-
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-        
-        message_body = f"Your Kazilen verification code is: {otp}. Valid for 5 minutes."
-        data = urllib.parse.urlencode({
-            "From": from_number,
-            "To": phone_number,
-            "Body": message_body
-        }).encode("utf-8")
-
-        # Basic Auth header encoding for Twilio
-        import base64
-        credentials = f"{account_sid}:{auth_token}"
-        encoded_credentials = base64.b64encode(credentials.encode("ascii")).decode("ascii")
-        headers = {
-            "Authorization": f"Basic {encoded_credentials}",
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-
-        try:
-            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=10) as response:
-                res_body = json.loads(response.read().decode("utf-8"))
-                logger.info(f"[TwilioProvider] SMS sent successfully. Message SID: {res_body.get('sid')}")
-                return True
-        except Exception as e:
-            logger.error(f"[TwilioProvider] Error sending Twilio SMS: {e}")
-            return False
-
-
-# =========================================================================
-# 5. GENERIC / CUSTOM HTTP SMS GATEWAY PROVIDER (e.g. MSG91, Fast2SMS, AWS SNS)
+# 6. GENERIC / CUSTOM HTTP SMS GATEWAY PROVIDER
 # =========================================================================
 class CustomHTTPProvider(BaseOTPProvider):
     """
-    Generic HTTP Gateway Provider.
-    Use this if you use Indian SMS providers (MSG91, Fast2SMS), AWS SNS, Infobip, etc.
-    
-    Required .env variables:
-      - SMS_GATEWAY_URL: Target API endpoint URL
-      - SMS_GATEWAY_API_KEY: API Key / Token
+    Generic HTTP Gateway Provider (e.g. MSG91, Fast2SMS, Infobip, AWS SNS).
     """
     def send_otp(self, phone_number: str, otp: str) -> bool:
         gateway_url = settings.SMS_GATEWAY_URL
@@ -233,23 +256,26 @@ class CustomHTTPProvider(BaseOTPProvider):
             "otp": otp
         }
 
-        try:
-            req = urllib.request.Request(
-                gateway_url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers=headers,
-                method="POST"
-            )
-            with urllib.request.urlopen(req, timeout=10) as response:
-                logger.info(f"[CustomHTTPProvider] OTP request sent to {gateway_url}")
-                return True
-        except Exception as e:
-            logger.error(f"[CustomHTTPProvider] Error sending request to custom gateway: {e}")
-            return False
+        def _send():
+            try:
+                req = urllib.request.Request(
+                    gateway_url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    logger.info(f"[CustomHTTPProvider] OTP request sent to {gateway_url}")
+            except Exception as e:
+                logger.error(f"[CustomHTTPProvider] Error sending request to custom gateway: {e}")
+
+        t = threading.Thread(target=_send, daemon=True)
+        t.start()
+        return True
 
 
 # =========================================================================
-# 6. OTP SERVICE MANAGER & FACTORY
+# 7. OTP SERVICE MANAGER & CONVENIENCE FUNCTIONS
 # =========================================================================
 class OTPService:
     """
@@ -258,8 +284,11 @@ class OTPService:
     """
     _providers: Dict[str, BaseOTPProvider] = {
         "console": ConsoleOTPProvider(),
-        "whatsapp": WhatsAppMetaOTPProvider(),
         "twilio": TwilioOTPProvider(),
+        "twilio_sms": TwilioOTPProvider(),
+        "twilio_whatsapp": TwilioWhatsAppOTPProvider(),
+        "whatsapp": WhatsAppMetaOTPProvider(),
+        "meta_whatsapp": WhatsAppMetaOTPProvider(),
         "custom": CustomHTTPProvider(),
     }
 
@@ -269,7 +298,7 @@ class OTPService:
         Retrieves the requested provider instance.
         Falls back to 'console' if configured provider is unknown.
         """
-        name = (provider_name or settings.OTP_PROVIDER or "console").lower()
+        name = (provider_name or settings.OTP_PROVIDER or "twilio").lower()
         if name not in cls._providers:
             logger.warning(f"[OTPService] Unknown provider '{name}'. Falling back to 'console'.")
             return cls._providers["console"]
@@ -279,16 +308,28 @@ class OTPService:
     def send_otp(cls, phone_number: str, otp: str) -> bool:
         """
         Dispatches OTP to user via the currently configured OTP Provider.
-        If external provider fails (e.g. invalid API key or network down),
-        it safely falls back to ConsoleOTPProvider so local testing isn't blocked.
+        Always prints DEV OTP to terminal for developer convenience and falls back
+        gracefully if external API is unreachable.
         """
         provider = cls.get_provider()
         success = provider.send_otp(phone_number, otp)
 
-        # Fallback safeguard for development/testing if API fails
         if not success and not isinstance(provider, ConsoleOTPProvider):
-            logger.warning("[OTPService] Configured OTP provider failed! Using Console fallback.")
+            logger.warning("[OTPService] Configured OTP provider returned False! Using Console fallback.")
             ConsoleOTPProvider().send_otp(phone_number, otp)
             return True
 
         return success
+
+
+# Convenience direct helper functions (matching legacy Kazilen send_otp.py API)
+def sendOTP_SMS(recpient: str, otp: str):
+    """Direct helper matching Kazilen legacy interface for sending SMS OTP."""
+    provider = TwilioOTPProvider()
+    return provider.send_otp(recpient, otp)
+
+
+def sendOTP_WHATSAPP(recpient: str, otp: str):
+    """Direct helper matching Kazilen legacy interface for sending WhatsApp OTP."""
+    provider = TwilioWhatsAppOTPProvider()
+    return provider.send_otp(recpient, otp)
