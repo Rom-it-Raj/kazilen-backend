@@ -9,4 +9,4 @@ passlib
 python-dotenv
 pydantic
 pydantic-settings
-sqladmin
+sqladmin[auth]
