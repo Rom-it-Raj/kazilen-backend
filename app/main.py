@@ -10,29 +10,46 @@ from app.db.database import engine, Base, SessionLocal
 from app.core.config import settings
 from app.services.referral_service import ensure_referral_codes
 
+from app.admin import setup_admin
+
 # Initialize database schema
 Base.metadata.create_all(bind=engine)
+
 
 def auto_migrate():
     """Applies lightweight schema migrations for existing local databases."""
     with engine.begin() as conn:
         dialect = engine.dialect.name
         # User table columns
-        for col_name in ["dob", "gender", "offered_services", "referral_code", "availability"]:
+        for col_name in [
+            "dob",
+            "gender",
+            "offered_services",
+            "referral_code",
+            "availability",
+        ]:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} VARCHAR"))
             except Exception:
                 pass
         try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN referral_points INTEGER DEFAULT 0"))
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN referral_points INTEGER DEFAULT 0")
+            )
         except Exception:
             pass
         try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN is_online INTEGER DEFAULT 1"))
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN is_online INTEGER DEFAULT 1")
+            )
         except Exception:
             pass
         try:
-            conn.execute(text("CREATE UNIQUE INDEX ix_users_referral_code ON users (referral_code)"))
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX ix_users_referral_code ON users (referral_code)"
+                )
+            )
         except Exception:
             pass
         # Booking table columns
@@ -44,9 +61,12 @@ def auto_migrate():
             ("updated_at", timestamp_type),
         ]:
             try:
-                conn.execute(text(f"ALTER TABLE bookings ADD COLUMN {col_name} {col_type}"))
+                conn.execute(
+                    text(f"ALTER TABLE bookings ADD COLUMN {col_name} {col_type}")
+                )
             except Exception:
                 pass
+
 
 auto_migrate()
 
@@ -54,11 +74,11 @@ with SessionLocal() as db:
     ensure_referral_codes(db)
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    title=settings.PROJECT_NAME, version="1.0.0", docs_url="/docs", redoc_url="/redoc"
 )
+
+# Admin Panel
+setup_admin(app)
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -76,6 +96,7 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     print(f"[ERROR] Uncaught exception: {exc}")
@@ -85,6 +106,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": str(exc) or "Internal Server Error"},
     )
 
+
 # Include Router Modules
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["Users Profile"])
@@ -93,12 +115,9 @@ app.include_router(bookings.router, prefix="/api/bookings", tags=["Bookings"])
 app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews & Feedback"])
 app.include_router(addresses.router, prefix="/api/addresses", tags=["Saved Addresses"])
 
+
 @app.get("/", tags=["Health"])
 @app.get("/health", tags=["Health"])
 def health_check():
     """Health check endpoint for container orchestrators and load balancers."""
-    return {
-        "status": "healthy",
-        "service": settings.PROJECT_NAME,
-        "version": "1.0.0"
-    }
+    return {"status": "healthy", "service": settings.PROJECT_NAME, "version": "1.0.0"}
