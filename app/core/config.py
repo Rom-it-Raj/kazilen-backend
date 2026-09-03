@@ -1,6 +1,7 @@
 import os
 from pydantic_settings import BaseSettings
 
+
 def get_database_url() -> str:
     db_url = os.getenv("DATABASE_URL")
     if db_url:
@@ -12,6 +13,7 @@ def get_database_url() -> str:
     if neon_host and neon_password:
         return f"postgresql://{neon_user}:{neon_password}@{neon_host}/{neon_db}?sslmode=require"
     return "sqlite:///./kazilen.db"
+
 
 def get_redis_url() -> str:
     redis_url = os.getenv("REDIS_URL")
@@ -26,10 +28,19 @@ def get_redis_url() -> str:
         return f"redis://{redis_host}:{redis_port}/0"
     return "redis://localhost:6379/0"
 
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Kazilen Backend"
-    SECRET_KEY: str = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or "super-secret-key-for-local-dev"
-    JWT_SECRET: str = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or "super-secret-key-for-local-dev"
+    SECRET_KEY: str = (
+        os.getenv("JWT_SECRET")
+        or os.getenv("SECRET_KEY")
+        or "super-secret-key-for-local-dev"
+    )
+    JWT_SECRET: str = (
+        os.getenv("JWT_SECRET")
+        or os.getenv("SECRET_KEY")
+        or "super-secret-key-for-local-dev"
+    )
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     # Set to "true" in production (HTTPS) so the auth cookie is only sent over secure connections
@@ -51,16 +62,28 @@ class Settings(BaseSettings):
 
     # Twilio SMS API Settings
     # Get these from https://console.twilio.com/
-    TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID") or os.getenv("ACCOUNT_SID") or ""
-    TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN") or os.getenv("AUTH_TOKEN") or ""
-    TWILIO_PHONE_NUMBER: str = os.getenv("TWILIO_PHONE_NUMBER") or os.getenv("COMPANY_NUMBER") or ""
+    TWILIO_ACCOUNT_SID: str = (
+        os.getenv("TWILIO_ACCOUNT_SID") or os.getenv("ACCOUNT_SID") or ""
+    )
+    TWILIO_AUTH_TOKEN: str = (
+        os.getenv("TWILIO_AUTH_TOKEN") or os.getenv("AUTH_TOKEN") or ""
+    )
+    TWILIO_PHONE_NUMBER: str = (
+        os.getenv("TWILIO_PHONE_NUMBER") or os.getenv("COMPANY_NUMBER") or ""
+    )
 
     # Custom HTTP / SMS Gateway Settings (e.g., MSG91, Fast2SMS, Infobip, AWS SNS)
     SMS_GATEWAY_URL: str = os.getenv("SMS_GATEWAY_URL", "")
     SMS_GATEWAY_API_KEY: str = os.getenv("SMS_GATEWAY_API_KEY", "")
 
+    # DB Admin Access
+    ADMIN_USER: str = os.getenv("admin") or ""
+    ADMIN_PASSWORD: str = os.getenv("default_password") or ""
+    ADMIN_SECRET_KEY: str = os.getenv("default_secret_key") or ""
+
     class Config:
         env_file = ".env"
         extra = "ignore"
+
 
 settings = Settings()
