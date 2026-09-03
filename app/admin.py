@@ -55,7 +55,7 @@ def setup_admin(app):
     admin = Admin(
         app=app,
         engine=engine,
-        audit_backend=authenticationBackend,
+        authentication_backend=authenticationBackend,
         title="Kazilen Admin Panel",
     )
     admin.add_view(userAdmin)
